@@ -48,18 +48,18 @@ def haptic_feedback():
         "green": {"led": (0, 255, 0), "vibration": 100},
     }
 
-    devices = discover_devices(1)
+    # Discover up to 4 dots
+    devices = discover_devices(4)
     if not devices:
         return jsonify({"error": "No dots found"}), 500
 
-    dot = devices[0]
-
-    # Set LED and haptics based on the user-selected color
+    # Apply haptic feedback to all dots
     settings = COLOR_HAPTIC_MAPPINGS[color]
-    dot.set_led(*settings["led"])
-    dot.registers.set_vibration_mode(1)
-    dot.registers.set_vibration_frequency(settings["vibration"])
-    dot.registers.set_vibration_intensity(1.0)
+    for dot in devices:
+        dot.set_led(*settings["led"])
+        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_frequency(settings["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
 
     # Store highlight with selected color
     highlighted_text_data.append({"text": text, "color": color, "note": None})
@@ -67,14 +67,15 @@ def haptic_feedback():
     # Play haptic feedback for 1.5 seconds
     time.sleep(1.5)
 
-    # Turn off vibration and LED
-    dot.registers.set_vibration_intensity(0.0)
-    adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
-    dot.set_led(*adjusted_led)
-    dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
-    dot.registers.set_thermal_intensity(0.0)  # Reset temp
+    # Turn off vibration and LED for all dots
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+        dot.set_led(*adjusted_led)
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
+        dot.registers.set_thermal_intensity(0.0)  # Reset temp
 
-    return jsonify({"message": f"Haptic feedback triggered for {color}, then turned off."})
+    return jsonify({"message": f"Haptic feedback triggered for {color} on all 4 dots, then turned off."})
 
 
 @app.route("/analyze-sentiment", methods=["POST"])
@@ -99,17 +100,17 @@ def analyze_sentiment():
     # Ensure the detected emotion is mapped to a color
     settings = EMOTION_HAPTIC_MAPPINGS.get(top_emotion, {"color": "yellow", "vibration": 150})
 
-    devices = discover_devices(1)
+    # Discover up to 4 dots
+    devices = discover_devices(4)
     if not devices:
         return jsonify({"error": "No dots found"}), 500
 
-    dot = devices[0]
-
-    # Send LED and haptic feedback
-    dot.set_led(*settings["led"])
-    dot.registers.set_vibration_mode(1)
-    dot.registers.set_vibration_frequency(settings["vibration"])
-    dot.registers.set_vibration_intensity(1.0)
+    # Send LED and haptic feedback to all 4 dots
+    for dot in devices:
+        dot.set_led(*settings["led"])
+        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_frequency(settings["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
 
     # Store the note with detected emotion
     highlighted_text_data.append({"text": text, "color": settings["color"], "note": text})
@@ -117,15 +118,16 @@ def analyze_sentiment():
     # Play haptic feedback for 1.5 seconds
     time.sleep(1.5)
 
-    # Stop vibration and reset settings
-    dot.registers.set_vibration_intensity(0.0)
-    adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
-    dot.set_led(*adjusted_led)
-    dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
-    dot.registers.set_thermal_intensity(0.0)  # Reset temperature
+    # Stop vibration and reset settings for all dots
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+        dot.set_led(*adjusted_led)
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
+        dot.registers.set_thermal_intensity(0.0)  # Reset temperature
 
     return jsonify({
-        "message": f"Emotion detected: {top_emotion}, color assigned: {settings['color']}, haptic feedback triggered.",
+        "message": f"Emotion detected: {top_emotion}, color assigned: {settings['color']}, haptic feedback triggered on all 4 dots.",
         "color": settings["color"],
         "emotion": top_emotion
     })

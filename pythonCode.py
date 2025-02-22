@@ -17,6 +17,8 @@ HAPTIC_MAPPINGS = {
 NEUTRAL_TEMP = 0.0  # Neutral temperature level
 LED_NEUTRAL = (255, 255, 255)  # Turn off the LED
 
+highlighted_text_data = []  # Store highlighted text, colors, and notes
+
 def adjust_intensity(color, intensity):
     """ Adjust LED brightness by scaling RGB values based on intensity (0.5 - 1.0) """
     return tuple(int(c * intensity) for c in color)
@@ -25,15 +27,18 @@ def adjust_intensity(color, intensity):
 def home():
     return send_file("website.html")
 
-@app.route("/haptic-feedback")
+@app.route("/haptic-feedback", methods=["POST"])
 def haptic_feedback():
-    color = request.args.get("color")
+    data = request.json
+    text = data.get("text", "")
+    color = data.get("color", "")
+
     if color not in HAPTIC_MAPPINGS:
-        return "Invalid color", 400
+        return jsonify({"error": "Invalid color"}), 400
 
     devices = discover_devices(1)
     if not devices:
-        return "No dots found", 500
+        return jsonify({"error": "No dots found"}), 500
 
     dot = devices[0]
     settings = HAPTIC_MAPPINGS[color]
@@ -44,17 +49,19 @@ def haptic_feedback():
     dot.registers.set_vibration_frequency(settings["vibration"])
     dot.registers.set_vibration_intensity(1.0)
 
+    # Store the highlight
+    highlighted_text_data.append({"text": text, "color": color, "note": None})
+
     # Play haptics for 1.5 seconds
     time.sleep(1.5)
 
     # Stop vibration, turn off LED, and reset temp
     dot.registers.set_vibration_intensity(0.0)
-    #dot.set_led(*LED_NEUTRAL)  # Turn off the light
     adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
     dot.set_led(*adjusted_led)
     dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
 
-    return f"Haptic feedback triggered for {color}, then turned off."
+    return jsonify({"message": f"Haptic feedback triggered for {color}, then turned off."})
 
 @app.route("/analyze-sentiment", methods=["POST"])
 def analyze_sentiment():
@@ -93,6 +100,9 @@ def analyze_sentiment():
     dot.registers.set_vibration_frequency(settings["vibration"])
     dot.registers.set_vibration_intensity(1.0)
 
+    # Store the note with color
+    highlighted_text_data.append({"text": text, "color": color, "note": text})
+
     # Play haptics for 1.5 seconds
     time.sleep(1.5)
 
@@ -106,6 +116,10 @@ def analyze_sentiment():
         "color": color,
         "intensity": round(intensity * 100)
     })
+
+@app.route("/get-highlights", methods=["GET"])
+def get_highlights():
+    return jsonify(highlighted_text_data)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

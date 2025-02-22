@@ -4,16 +4,28 @@
     <title>Text Highlighter & Haptic Feedback</title>
     <style>
         body { font-family: Arial, sans-serif; }
-        .highlighted { font-weight: bold; padding: 2px; }
+        .highlighted { font-weight: bold; padding: 2px; cursor: pointer; }
         .yellow { background-color: yellow; }
         .red { background-color: red; color: white; }
         .blue { background-color: blue; color: white; }
         .green { background-color: green; color: white; }
+        .note-box { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
     </style>
     <script>
+        let selectedText = "";
+
+        function selectText() {
+            selectedText = window.getSelection().toString().trim();
+            if (!selectedText) {
+                alert("Please select some text first.");
+            }
+        }
+
         function highlightText(color) {
-            let selectedText = window.getSelection().toString().trim();
-            if (!selectedText) return;
+            if (!selectedText) {
+                alert("Please select text before highlighting.");
+                return;
+            }
 
             let span = document.createElement("span");
             span.className = `highlighted ${color}`;
@@ -23,46 +35,63 @@
             range.deleteContents();
             range.insertNode(span);
 
-            console.log("Highlighted:", selectedText, "Color:", color);
-
-            // Send request to backend with selected color
+            // Send color to backend for haptic feedback
             fetch(`/haptic-feedback?color=${color}`);
+
+            // Reset selected text
+            selectedText = "";
         }
 
-        function analyzeSentiment() {
-            let note = document.getElementById("noteInput").value.trim();
-            if (!note) {
-                alert("Please enter a note.");
+        function addNote() {
+            if (!selectedText) {
+                alert("Please select text before adding a note.");
                 return;
             }
 
+            let note = prompt(`Add a note for: "${selectedText}"`);
+            if (!note) return;
+
+            let span = document.createElement("span");
+            span.className = "highlighted yellow"; // Default color
+            span.textContent = selectedText;
+            span.setAttribute("data-note", note);
+            span.onclick = function() { alert("Note: " + note); };
+
+            let range = window.getSelection().getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(span);
+
+            // Send note to backend for sentiment analysis
             fetch("/analyze-sentiment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: note })
             })
-            .then(response => response.text())
+            .then(response => response.json())
             .then(data => {
-                document.getElementById("result").innerText = data;
+                alert(data.message); // Display feedback message
+                span.className = `highlighted ${data.color}`; // Change highlight color based on sentiment
             })
             .catch(error => console.error("Error:", error));
+
+            // Reset selected text
+            selectedText = "";
         }
     </script>
 </head>
 <body>
-    <h2>Highlight Text & Trigger Haptic Feedback</h2>
-    <p>Select text and click a color to highlight & trigger haptic feedback:</p>
-    
+    <h2>Highlight Text & Add a Note for Haptic Feedback</h2>
+    <p>Select text and then click a color or "Add Note" to associate a note with it:</p>
+
+    <button onclick="selectText()">Select Text</button>
     <button onclick="highlightText('yellow')">Yellow</button>
     <button onclick="highlightText('red')">Red</button>
     <button onclick="highlightText('blue')">Blue</button>
     <button onclick="highlightText('green')">Green</button>
+    <button onclick="addNote()">Add Note</button>
 
-    <p>Example paragraph: Highlight words here and assign different colors!</p>
+    <p>Example paragraph: Try selecting a part of this text and assigning a color or note to it.</p>
 
-    <h2>Write a Note for Sentiment Analysis</h2>
-    <textarea id="noteInput" rows="4" cols="50" placeholder="Write something..."></textarea><br>
-    <button onclick="analyzeSentiment()">Analyze Sentiment & Get Haptic Feedback</button>
-    <p id="result"></p>
+    <div id="notes-container"></div> <!-- Notes will appear here -->
 </body>
 </html>

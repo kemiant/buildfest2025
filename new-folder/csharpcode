@@ -1,0 +1,205 @@
+// dotnet add package Microsoft.AspNetCore.App
+// dotnet add package Newtonsoft.Json
+// dotnet add package NLTK.NET
+
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace HapticFeedbackAPI
+{
+    public class Startup
+    {
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddControllers();
+        }
+
+        public void Configure(IApplicationBuilder app)
+        {
+            app.UseRouting();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
+        }
+    }
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            var builder = WebApplication.CreateBuilder(args);
+            var app = builder.Build();
+
+            app.UseRouting();
+            app.MapControllers();
+
+            app.Run();
+        }
+    }
+
+    [ApiController]
+    [Route("/")]
+    public class HapticController : ControllerBase
+    {
+        // Emotion-to-color mapping for sentiment-based haptic feedback
+        private static readonly Dictionary<string, EmotionSettings> EMOTION_HAPTIC_MAPPINGS = new Dictionary<string, EmotionSettings>
+        {
+            { "anger", new EmotionSettings((255, 0, 0), "red", 200) },
+            { "fear", new EmotionSettings((128, 0, 128), "blue", 250) },
+            { "joy", new EmotionSettings((0, 255, 0), "green", 100) },
+            { "sadness", new EmotionSettings((0, 0, 255), "blue", 220) },
+            { "disgust", new EmotionSettings((255, 165, 0), "yellow", 180) },
+            { "surprise", new EmotionSettings((255, 255, 0), "yellow", 150) },
+            { "trust", new EmotionSettings((0, 255, 255), "green", 120) },
+            { "anticipation", new EmotionSettings((255, 192, 203), "yellow", 130) }
+        };
+
+        private static readonly Dictionary<string, EmotionSettings> COLOR_HAPTIC_MAPPINGS = new Dictionary<string, EmotionSettings>
+        {
+            { "yellow", new EmotionSettings((255, 255, 0), "yellow", 150) },
+            { "red", new EmotionSettings((255, 0, 0), "red", 200) },
+            { "blue", new EmotionSettings((0, 0, 255), "blue", 250) },
+            { "green", new EmotionSettings((0, 255, 0), "green", 100) }
+        };
+
+        private static readonly List<HighlightedText> highlightedTextData = new List<HighlightedText>();
+
+        private static readonly (int, int, int) LED_NEUTRAL = (255, 255, 255); // White light
+        private const double NEUTRAL_TEMP = 0.0;
+
+        // Serve frontend file
+        [HttpGet]
+        public IActionResult Home()
+        {
+            return PhysicalFile("wwwroot/csharpHTML.html", "text/html");
+        }
+
+        // Handle manual text highlighting and send haptic feedback
+        [HttpPost("haptic-feedback")]
+        public IActionResult HapticFeedback([FromBody] HapticRequest request)
+        {
+            if (!COLOR_HAPTIC_MAPPINGS.ContainsKey(request.Color))
+                return BadRequest(new { error = "Invalid color" });
+
+            var settings = COLOR_HAPTIC_MAPPINGS[request.Color];
+
+            // Simulate sending signal to hardware
+            SendHapticSignal(settings);
+
+            highlightedTextData.Add(new HighlightedText(request.Text, request.Color, null));
+
+            Thread.Sleep(1500); // Simulate delay for feedback duration
+
+            // Simulate turning off LED
+            ResetHapticDevice();
+
+            return Ok(new { message = $"Haptic feedback triggered for {request.Color}, then turned off." });
+        }
+
+        // Handle note addition, analyze sentiment, and trigger haptic feedback
+        [HttpPost("analyze-sentiment")]
+        public IActionResult AnalyzeSentiment([FromBody] SentimentRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Text))
+                return BadRequest(new { error = "No text provided" });
+
+            // Simulate sentiment analysis (replace with real NLP library)
+            string detectedEmotion = FakeSentimentAnalysis(request.Text);
+
+            if (!EMOTION_HAPTIC_MAPPINGS.ContainsKey(detectedEmotion))
+                detectedEmotion = "neutral";
+
+            var settings = EMOTION_HAPTIC_MAPPINGS[detectedEmotion];
+
+            // Simulate sending signal to hardware
+            SendHapticSignal(settings);
+
+            highlightedTextData.Add(new HighlightedText(request.Text, settings.Color, request.Text));
+
+            Thread.Sleep(1500); // Simulate delay for feedback duration
+
+            // Simulate turning off LED
+            ResetHapticDevice();
+
+            return Ok(new
+            {
+                message = $"Emotion detected: {detectedEmotion}, color assigned: {settings.Color}, haptic feedback triggered.",
+                color = settings.Color,
+                emotion = detectedEmotion
+            });
+        }
+
+        // Simulate sending haptic signals to hardware (Replace with actual device calls)
+        private void SendHapticSignal(EmotionSettings settings)
+        {
+            Console.WriteLine($"Haptic Feedback Sent: LED {settings.LED}, Vibration {settings.Vibration}");
+        }
+
+        // Simulate resetting the haptic device
+        private void ResetHapticDevice()
+        {
+            Console.WriteLine("Haptic feedback turned off.");
+        }
+
+        // Fake sentiment analysis function (replace with real NLP model)
+        private string FakeSentimentAnalysis(string text)
+        {
+            var words = text.Split(' ');
+            if (words.Contains("happy") || words.Contains("joy")) return "joy";
+            if (words.Contains("sad") || words.Contains("cry")) return "sadness";
+            if (words.Contains("angry") || words.Contains("mad")) return "anger";
+            if (words.Contains("fear")) return "fear";
+            return "neutral";
+        }
+    }
+
+    // Models for handling JSON requests
+    public class HapticRequest
+    {
+        public string Text { get; set; }
+        public string Color { get; set; }
+    }
+
+    public class SentimentRequest
+    {
+        public string Text { get; set; }
+    }
+
+    public class HighlightedText
+    {
+        public string Text { get; set; }
+        public string Color { get; set; }
+        public string Note { get; set; }
+
+        public HighlightedText(string text, string color, string note)
+        {
+            Text = text;
+            Color = color;
+            Note = note;
+        }
+    }
+
+    public class EmotionSettings
+    {
+        public (int, int, int) LED { get; }
+        public string Color { get; }
+        public int Vibration { get; }
+
+        public EmotionSettings((int, int, int) led, string color, int vibration)
+        {
+            LED = led;
+            Color = color;
+            Vibration = vibration;
+        }
+    }
+}

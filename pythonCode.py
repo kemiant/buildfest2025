@@ -1,24 +1,36 @@
 from flask import Flask, request, send_file, jsonify
 from datafeel.device import discover_devices
 from nrclex import NRCLex
-import time  
+import time
 
 app = Flask(__name__)
 
 # Emotion-to-color mapping for highlighting & haptic feedback
 EMOTION_HAPTIC_MAPPINGS = {
-    "anger": {"led": (255, 0, 0), "color": "red", "vibration": 200},        
-    "fear": {"led": (128, 0, 128), "color": "blue", "vibration": 250},      
-    "joy": {"led": (0, 255, 0), "color": "green", "vibration": 100},        
-    "sadness": {"led": (0, 0, 255), "color": "blue", "vibration": 220},     
-    "disgust": {"led": (255, 165, 0), "color": "yellow", "vibration": 180}, 
+    "anger": {"led": (255, 0, 0), "color": "red", "vibration": 200},
+    "fear": {"led": (128, 0, 128), "color": "blue", "vibration": 250},
+    "joy": {"led": (0, 255, 0), "color": "green", "vibration": 100},
+    "sadness": {"led": (0, 0, 255), "color": "blue", "vibration": 220},
+    "disgust": {"led": (255, 165, 0), "color": "yellow", "vibration": 180},
     "surprise": {"led": (255, 255, 0), "color": "yellow", "vibration": 150},
-    "trust": {"led": (0, 255, 255), "color": "green", "vibration": 120},    
-    "anticipation": {"led": (255, 192, 203), "color": "yellow", "vibration": 130},  
+    "trust": {"led": (0, 255, 255), "color": "green", "vibration": 120},
+    "anticipation": {"led": (255, 192, 203), "color": "yellow", "vibration": 130},
 }
 
-NEUTRAL_TEMP = 0.0  
-LED_NEUTRAL = (255, 255, 255)  
+# Expanded emotion keyword mapping
+EMOTION_KEYWORDS = {
+    "anger": ["angry", "mad", "furious", "rage"],
+    "fear": ["scared", "afraid", "terrified", "nervous", "anxious"],
+    "joy": ["happy", "excited", "delighted", "joyful", "glad"],
+    "sadness": ["sad", "unhappy", "depressed", "down", "miserable"],
+    "disgust": ["disgusted", "gross", "revolted", "sickened"],
+    "surprise": ["shocked", "amazed", "astonished", "surprised"],
+    "trust": ["trust", "confident", "assured", "reliable"],
+    "anticipation": ["eager", "expecting", "anticipating"],
+}
+
+NEUTRAL_TEMP = 0.0
+LED_NEUTRAL = (255, 255, 255)
 
 highlighted_text_data = []
 
@@ -36,11 +48,9 @@ def haptic_feedback():
     text = data.get("text", "")
     color = data.get("color", "")
 
-    # Ensure a valid color was sent
     if color not in ["yellow", "red", "blue", "green"]:
         return jsonify({"error": "Invalid color"}), 400
 
-    # Define custom color mappings to match highlight colors
     COLOR_HAPTIC_MAPPINGS = {
         "yellow": {"led": (255, 255, 0), "vibration": 150},
         "red": {"led": (255, 0, 0), "vibration": 200},
@@ -48,12 +58,10 @@ def haptic_feedback():
         "green": {"led": (0, 255, 0), "vibration": 100},
     }
 
-    # Discover up to 4 dots
     devices = discover_devices(4)
     if not devices:
         return jsonify({"error": "No dots found"}), 500
 
-    # Apply haptic feedback to all dots
     settings = COLOR_HAPTIC_MAPPINGS[color]
     for dot in devices:
         dot.set_led(*settings["led"])
@@ -61,77 +69,73 @@ def haptic_feedback():
         dot.registers.set_vibration_frequency(settings["vibration"])
         dot.registers.set_vibration_intensity(1.0)
 
-    # Store highlight with selected color
     highlighted_text_data.append({"text": text, "color": color, "note": None})
 
-    # Play haptic feedback for 1.5 seconds
     time.sleep(1.5)
 
-    # Turn off vibration and LED for all dots
     for dot in devices:
         dot.registers.set_vibration_intensity(0.0)
         adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
         dot.set_led(*adjusted_led)
-        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
-        dot.registers.set_thermal_intensity(0.0)  # Reset temp
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)
 
     return jsonify({"message": f"Haptic feedback triggered for {color} on all 4 dots, then turned off."})
-
 
 @app.route("/analyze-sentiment", methods=["POST"])
 def analyze_sentiment():
     data = request.json
-    text = data.get("text", "").strip()
-    
+    text = data.get("text", "").strip().lower()
+
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
     # Perform sentiment analysis using NRCLex
     analysis = NRCLex(text)
-    emotion_frequencies = analysis.affect_frequencies  # Dictionary of emotions & scores
+    emotion_frequencies = analysis.affect_frequencies
 
-    # Ensure NRCLex provided valid emotions
+    # Ensure NRCLex detected emotions
     if not emotion_frequencies or sum(emotion_frequencies.values()) == 0:
-        return jsonify({"error": "Could not detect emotion from text."}), 400
+        detected_emotion = detect_emotion_from_text(text)
+    else:
+        detected_emotion = max(emotion_frequencies, key=emotion_frequencies.get, default="neutral")
 
-    # Get the most dominant emotion based on highest score
-    top_emotion = max(emotion_frequencies, key=emotion_frequencies.get, default="neutral")
+    # Ensure detected emotion is mapped to a color
+    settings = EMOTION_HAPTIC_MAPPINGS.get(detected_emotion, {"color": "yellow", "vibration": 150})
 
-    # Ensure the detected emotion is mapped to a color
-    settings = EMOTION_HAPTIC_MAPPINGS.get(top_emotion, {"color": "yellow", "vibration": 150})
-
-    # Discover up to 4 dots
     devices = discover_devices(4)
     if not devices:
         return jsonify({"error": "No dots found"}), 500
 
-    # Send LED and haptic feedback to all 4 dots
     for dot in devices:
         dot.set_led(*settings["led"])
         dot.registers.set_vibration_mode(1)
         dot.registers.set_vibration_frequency(settings["vibration"])
         dot.registers.set_vibration_intensity(1.0)
 
-    # Store the note with detected emotion
     highlighted_text_data.append({"text": text, "color": settings["color"], "note": text})
 
-    # Play haptic feedback for 1.5 seconds
     time.sleep(1.5)
 
-    # Stop vibration and reset settings for all dots
     for dot in devices:
         dot.registers.set_vibration_intensity(0.0)
         adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
         dot.set_led(*adjusted_led)
-        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
-        dot.registers.set_thermal_intensity(0.0)  # Reset temperature
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)
 
     return jsonify({
-        "message": f"Emotion detected: {top_emotion}, color assigned: {settings['color']}, haptic feedback triggered on all 4 dots.",
+        "message": f"Emotion detected: {detected_emotion}, color assigned: {settings['color']}, haptic feedback triggered.",
         "color": settings["color"],
-        "emotion": top_emotion
+        "emotion": detected_emotion
     })
 
+def detect_emotion_from_text(text):
+    """
+    Manually detects emotion from text using expanded keyword matching.
+    """
+    for emotion, keywords in EMOTION_KEYWORDS.items():
+        if any(keyword in text for keyword in keywords):
+            return emotion
+    return "neutral"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

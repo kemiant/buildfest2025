@@ -10,6 +10,7 @@
         .blue { background-color: blue; color: white; }
         .green { background-color: green; color: white; }
         .note-box { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
+        .hidden { display: none; }
     </style>
     <script>
         function getSelectedText() {
@@ -73,18 +74,40 @@
                 span.className = `highlighted ${data.color}`;
             });
 
+            // Hide the highlight buttons when switching to "Add Note"
+            document.getElementById("highlight-options").classList.add("hidden");
+            document.getElementById("toggle-highlight").classList.remove("hidden");
+
             window.getSelection().removeAllRanges();
+        }
+
+        function toggleHighlightOptions() {
+            let highlightOptions = document.getElementById("highlight-options");
+            let toggleButton = document.getElementById("toggle-highlight");
+
+            if (highlightOptions.classList.contains("hidden")) {
+                highlightOptions.classList.remove("hidden");
+                toggleButton.classList.add("hidden"); // Hide the "Highlight" button
+            } else {
+                highlightOptions.classList.add("hidden");
+                toggleButton.classList.remove("hidden"); // Show the "Highlight" button
+            }
         }
     </script>
 </head>
 <body>
     <h2>Highlight Text & Add a Note for Haptic Feedback</h2>
-    <p>Select text and click a color or "Add Note" to annotate it.</p>
+    <p>Select text and click "Highlight" to choose a color or "Add Note" to annotate it.</p>
 
-    <button onclick="highlightText('yellow')">Yellow</button>
-    <button onclick="highlightText('red')">Red</button>
-    <button onclick="highlightText('blue')">Blue</button>
-    <button onclick="highlightText('green')">Green</button>
+    <button id="toggle-highlight" onclick="toggleHighlightOptions()">Highlight</button>
+
+    <div id="highlight-options" class="hidden">
+        <button onclick="highlightText('yellow')">Yellow</button>
+        <button onclick="highlightText('red')">Red</button>
+        <button onclick="highlightText('blue')">Blue</button>
+        <button onclick="highlightText('green')">Green</button>
+    </div>
+
     <button onclick="addNote()">Add Note</button>
 
     <p>Example paragraph: Try selecting a part of this text and assigning a color or note to it.</p>

@@ -108,7 +108,8 @@ def analyze_sentiment():
 
     # Stop vibration, turn off LED, and reset temp
     dot.registers.set_vibration_intensity(0.0)
-    dot.set_led(*LED_OFF)  # Turn off the light
+    adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+    dot.set_led(*adjusted_led)
     dot.registers.set_thermal_intensity(NEUTRAL_TEMP)  # Reset temperature to neutral
 
     return jsonify({

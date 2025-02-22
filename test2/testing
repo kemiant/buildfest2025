@@ -1,0 +1,60 @@
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+export default function AnnotationApp() {
+  const [text, setText] = useState("This is a sample passage. Select text to annotate.");
+  const [annotations, setAnnotations] = useState([]);
+  const [selectedText, setSelectedText] = useState("");
+  const [annotationType, setAnnotationType] = useState("highlight");
+
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      setSelectedText(selection.toString());
+    }
+  };
+
+  const addAnnotation = () => {
+    if (selectedText) {
+      setAnnotations([...annotations, { text: selectedText, type: annotationType }]);
+      setSelectedText("");
+    }
+  };
+
+  return (
+    <div className="p-4 max-w-2xl mx-auto">
+      <Card className="p-4 border border-gray-300">
+        <CardContent onMouseUp={handleSelection} className="cursor-text">
+          {text}
+        </CardContent>
+      </Card>
+      <div className="mt-4 flex gap-2">
+        <select
+          value={annotationType}
+          onChange={(e) => setAnnotationType(e.target.value)}
+          className="border p-2 rounded"
+        >
+          <option value="highlight">Highlight</option>
+          <option value="bold">Vibration Mark (Bold)</option>
+          <option value="underline">Temperature Mark (Underline)</option>
+        </select>
+        <Button onClick={addAnnotation} disabled={!selectedText}>Add Annotation</Button>
+      </div>
+      <div className="mt-4">
+        <h3 className="text-lg font-semibold">Annotations</h3>
+        <ul className="list-disc pl-4">
+          {annotations.map((anno, index) => (
+            <li key={index} className={
+              anno.type === "highlight" ? "bg-yellow-200" :
+              anno.type === "bold" ? "font-bold" : "underline"
+            }>
+              {anno.text} ({anno.type})
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}

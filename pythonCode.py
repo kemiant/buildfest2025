@@ -1,3 +1,5 @@
+#pip install flask
+#pip install datafeel
 from flask import Flask, request
 from datafeel.device import discover_devices
 

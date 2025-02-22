@@ -13,32 +13,33 @@
     </style>
     <script>
         function getSelectedText() {
-            return window.getSelection().toString().trim();
+            let selection = window.getSelection();
+            if (selection.rangeCount === 0) return ""; // No selection
+            return selection.toString().trim();
         }
 
         function highlightText(color) {
             let selectedText = getSelectedText();
             if (!selectedText) {
-                alert("Please highlight some text first.");
+                alert("Please select text before highlighting.");
                 return;
             }
 
+            let range = window.getSelection().getRangeAt(0);
             let span = document.createElement("span");
             span.className = `highlighted ${color}`;
             span.textContent = selectedText;
-
-            let range = window.getSelection().getRangeAt(0);
             range.deleteContents();
             range.insertNode(span);
 
-            // Send data to backend for haptic feedback
+            // Send color to backend for haptic feedback
             fetch("/haptic-feedback", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: selectedText, color: color })
             });
 
-            window.getSelection().removeAllRanges();  // Clear selection
+            window.getSelection().removeAllRanges();
         }
 
         function addNote() {
@@ -51,13 +52,12 @@
             let note = prompt(`Add a note for: "${selectedText}"`);
             if (!note) return;
 
+            let range = window.getSelection().getRangeAt(0);
             let span = document.createElement("span");
-            span.className = "highlighted yellow"; // Default color
             span.textContent = selectedText;
+            span.className = "highlighted yellow"; // Default color before sentiment analysis
             span.setAttribute("data-note", note);
             span.onclick = function() { alert("Note: " + note); };
-
-            let range = window.getSelection().getRangeAt(0);
             range.deleteContents();
             range.insertNode(span);
 
@@ -69,18 +69,17 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(data.message); // Display feedback message
-                span.className = `highlighted ${data.color}`; // Change highlight color based on sentiment
-            })
-            .catch(error => console.error("Error:", error));
+                alert(data.message);
+                span.className = `highlighted ${data.color}`;
+            });
 
-            window.getSelection().removeAllRanges();  // Clear selection
+            window.getSelection().removeAllRanges();
         }
     </script>
 </head>
 <body>
     <h2>Highlight Text & Add a Note for Haptic Feedback</h2>
-    <p>Select text and then click a color or "Add Note" to associate a note with it:</p>
+    <p>Select text and click a color or "Add Note" to annotate it.</p>
 
     <button onclick="highlightText('yellow')">Yellow</button>
     <button onclick="highlightText('red')">Red</button>
@@ -90,6 +89,6 @@
 
     <p>Example paragraph: Try selecting a part of this text and assigning a color or note to it.</p>
 
-    <div id="notes-container"></div> <!-- Notes will appear here -->
+    <div id="notes-container"></div>
 </body>
 </html>

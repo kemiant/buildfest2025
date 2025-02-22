@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Text Highlighter & Haptic Feedback</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .highlighted { font-weight: bold; padding: 2px; }
+        .yellow { background-color: yellow; }
+        .red { background-color: red; color: white; }
+        .blue { background-color: blue; color: white; }
+        .green { background-color: green; color: white; }
+    </style>
+    <script>
+        function highlightText(color) {
+            let selectedText = window.getSelection().toString().trim();
+            if (!selectedText) return;
+
+            let span = document.createElement("span");
+            span.className = `highlighted ${color}`;
+            span.textContent = selectedText;
+
+            let range = window.getSelection().getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(span);
+
+            console.log("Highlighted:", selectedText, "Color:", color);
+
+            // Send request to backend with selected color
+            fetch(`/haptic-feedback?color=${color}`);
+        }
+    </script>
+</head>
+<body>
+    <h2>Highlight Text & Trigger Haptic Feedback</h2>
+    <p>Select text and click a color to highlight & trigger haptic feedback:</p>
+    
+    <button onclick="highlightText('yellow')">Yellow</button>
+    <button onclick="highlightText('red')">Red</button>
+    <button onclick="highlightText('blue')">Blue</button>
+    <button onclick="highlightText('green')">Green</button>
+
+    <p>Try highlighting and clicking a button to assign color.</p>
+    <p>Example paragraph: Highlight words here and assign different colors!</p>
+</body>
+</html>

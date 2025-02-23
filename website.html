@@ -30,6 +30,8 @@
             let span = document.createElement("span");
             span.className = `highlighted ${color}`;
             span.textContent = selectedText;
+            span.onclick = function() { replayHapticFeedback(selectedText); };
+
             range.deleteContents();
             range.insertNode(span);
 
@@ -59,14 +61,16 @@
             span.className = "highlighted yellow"; // Default color before sentiment analysis
             span.setAttribute("data-note", note);
             span.onclick = function() { alert("Note: " + note); };
+            span.onclick = function() { replayHapticFeedback(selectedText); alert("Note: " + note); };
+
             range.deleteContents();
             range.insertNode(span);
 
-            // Send note to backend for sentiment analysis
+            // Send note and highlighted text to backend for sentiment analysis
             fetch("/analyze-sentiment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: note })
+                body: JSON.stringify({ text: note, highlightedText: selectedText })
             })
             .then(response => response.json())
             .then(data => {
@@ -80,6 +84,19 @@
 
             window.getSelection().removeAllRanges();
         }
+
+        function replayHapticFeedback(text) {
+            fetch("/replay-haptic", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(`Replaying haptic feedback for: "${text}"`);
+            });
+        }
+
 
         function toggleHighlightOptions() {
             let highlightOptions = document.getElementById("highlight-options");

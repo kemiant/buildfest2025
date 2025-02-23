@@ -23,17 +23,17 @@ app = Flask(__name__)
 
 # Emotion-to-color mapping for highlighting & haptic feedback
 EMOTION_HAPTIC_MAPPINGS = {
-    "anger": {"led": (255, 0, 0), "color": "red", "vibration": 200},
-    "fear": {"led": (128, 0, 128), "color": "blue", "vibration": 250},
-    "joy": {"led": (0, 255, 0), "color": "green", "vibration": 100},
-    "sadness": {"led": (0, 0, 255), "color": "blue", "vibration": 220},
-    "disgust": {"led": (255, 165, 0), "color": "yellow", "vibration": 180},
-    "surprise": {"led": (255, 255, 0), "color": "yellow", "vibration": 150},
-    "trust": {"led": (0, 255, 255), "color": "green", "vibration": 120},
-    "anticipation": {"led": (255, 192, 203), "color": "yellow", "vibration": 130},
+    "anger": {"led": (255, 0, 0), "color": "red", "vibration": 200, "temperature": 40.0, "intensity": 1.0, "mode": 1},
+    "fear": {"led": (128, 0, 128), "color": "blue", "vibration": 250, "temperature": 12.0, "intensity": 0.8, "mode": 1},
+    "joy": {"led": (0, 255, 0), "color": "green", "vibration": 100, "temperature": 28.0, "intensity": 0.6, "mode": 1},
+    "sadness": {"led": (0, 0, 255), "color": "blue", "vibration": 220, "temperature": 10.0, "intensity": 0.5, "mode": 1},
+    "disgust": {"led": (255, 165, 0), "color": "yellow", "vibration": 180, "temperature": 29.0, "intensity": 0.7, "mode": 1},
+    "surprise": {"led": (255, 255, 0), "color": "yellow", "vibration": 150, "temperature": 31.0, "intensity": 0.9, "mode": 1},
+    "trust": {"led": (0, 255, 255), "color": "green", "vibration": 120, "temperature": 28.5, "intensity": 0.7, "mode": 1},
+    "anticipation": {"led": (255, 192, 203), "color": "yellow", "vibration": 130, "temperature": 30.5, "intensity": 0.6, "mode": 1},
 }
 
-# Emotion keyword mapping (checked first before NRCLex)
+# color mapping for highlighting & haptic feedback
 EMOTION_KEYWORDS = {
     "anger": [
         "angry", "mad", "furious", "rage", "irritated", "frustrated", "annoyed", "resentful",
@@ -68,8 +68,6 @@ EMOTION_KEYWORDS = {
         "excited", "aspiring", "optimistic", "restless", "prepared", "looking forward", "anxious"
     ]
 }
-
-
 color_rgb_mapping = {
         "yellow": (255, 255, 0),
         "red": (255, 0, 0),
@@ -122,16 +120,20 @@ def haptic_feedback():
 
     for dot in devices:
         dot.set_led(*settings["led"])
-        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_mode(settings["mode"])
         dot.registers.set_vibration_frequency(settings["vibration"])
-        dot.registers.set_vibration_intensity(1.0)
+        dot.registers.set_vibration_intensity(settings["intensity"])
+        dot.registers.set_thermal_intensity(settings["temperature"])
 
     highlighted_text_data.append({
     "text": text,
     "color": color,
     "note": None,
     "vibration": settings["vibration"],  # ✅ Store vibration settings
-    "type": "normal"
+    "type": "normal",
+    "temperature": settings["temperature"],
+    "mode": settings["mode"],
+    "intensity": settings["intensity"]
     })
     print(highlighted_text_data)
 
@@ -206,10 +208,12 @@ def analyze_sentiment():
         return jsonify({"error": "No dots found"}), 500
 
     for dot in devices:
+        print(f"Sending to device: LED={settings['led']}, Mode={settings['mode']}, Vibration={settings['vibration']}, Intensity={settings['intensity']}, Temp={settings['temperature']}")
         dot.set_led(*settings["led"])
-        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_mode(int(settings["mode"]))
         dot.registers.set_vibration_frequency(settings["vibration"])
-        dot.registers.set_vibration_intensity(1.0)
+        dot.registers.set_vibration_intensity(settings["intensity"])
+        dot.registers.set_thermal_intensity(settings["temperature"])
     print("This is the curr after", curr_text)
     
     highlighted_text_data.append({
@@ -218,7 +222,10 @@ def analyze_sentiment():
     "note": text,
     "vibration": settings["vibration"],  # ✅ Store vibration settings
     "type": "sense",
-    "emotion": detected_emotion
+    "emotion": detected_emotion,
+    "temperature": settings["temperature"],
+    "mode": settings["mode"],
+    "intensity": settings["intensity"]
     })
     print(highlighted_text_data)
 
@@ -233,7 +240,7 @@ def analyze_sentiment():
     return jsonify({
         "message": f"Emotion detected: {detected_emotion}, color assigned: {settings['color']}, haptic feedback triggered.",
         "color": settings["color"],
-        "emotion": detected_emotion
+        "emotion": detected_emotion, "temperature": settings["temperature"]
     })
 
 def detect_emotion_from_text(words):
@@ -274,8 +281,10 @@ def replay_haptic():
 
     for dot in devices:
         dot.set_led(*color_settings["led"])
+        dot.registers.set_vibration_mode(highlight["mode"])
         dot.registers.set_vibration_frequency(highlight["vibration"])
-        dot.registers.set_vibration_intensity(1.0)
+        dot.registers.set_vibration_intensity(highlight["intensity"])
+        dot.registers.set_thermal_intensity(highlight["temperature"])
 
     time.sleep(1.5)
 

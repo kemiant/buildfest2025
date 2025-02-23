@@ -110,7 +110,7 @@ The `website.html` file provides a user interface with interactive elements such
 - **Speech-to-Text Integration**: Enable real-time voice input.
 - **Improved Sentiment Analysis**: Utilize deep learning models for better accuracy.
 - **UI Enhancements**: Improve frontend with interactive elements.
-- 
+  
 
 ## Our Creation Process
 

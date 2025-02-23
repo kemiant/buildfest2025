@@ -103,6 +103,9 @@ The `website.html` file provides a user interface with interactive elements such
   - Handles AJAX requests for speech synthesis.
   - Provides smooth animations for alerts and modal popups.
 
+![image](https://github.com/user-attachments/assets/493aadb7-a3f8-44ac-baf2-b830fc6dc046)
+
+
 ## Future Improvements
 - **Speech-to-Text Integration**: Enable real-time voice input.
 - **Improved Sentiment Analysis**: Utilize deep learning models for better accuracy.

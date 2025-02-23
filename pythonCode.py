@@ -7,6 +7,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
 import nltk
+import speech_recognition as sr
 
 # Ensure necessary NLTK data is downloaded
 nltk.download('wordnet')
@@ -30,15 +31,40 @@ EMOTION_HAPTIC_MAPPINGS = {
 
 # Emotion keyword mapping (checked first before NRCLex)
 EMOTION_KEYWORDS = {
-    "anger": ["angry", "mad", "furious", "rage", "irritated", "frustrated"],
-    "fear": ["scared", "afraid", "terrified", "nervous", "anxious"],
-    "joy": ["happy", "excited", "delighted", "joyful", "glad"],
-    "sadness": ["sad", "unhappy", "depressed", "down", "miserable"],
-    "disgust": ["disgusted", "gross", "revolted", "sickened"],
-    "surprise": ["shocked", "amazed", "astonished", "surprised"],
-    "trust": ["trust", "confident", "assured", "reliable"],
-    "anticipation": ["eager", "expecting", "anticipating"],
+    "anger": [
+        "angry", "mad", "furious", "rage", "irritated", "frustrated", "annoyed", "resentful",
+        "offended", "outraged", "infuriated", "enraged", "cross", "fuming", "exasperated", "bitter"
+    ],
+    "fear": [
+        "scared", "afraid", "terrified", "nervous", "anxious", "panicked", "alarmed", "horrified",
+        "worried", "apprehensive", "uneasy", "frightened", "shaken", "startled", "intimidated"
+    ],
+    "joy": [
+        "happy", "excited", "delighted", "joyful", "glad", "cheerful", "content", "elated",
+        "ecstatic", "thrilled", "euphoric", "radiant", "overjoyed", "satisfied", "grateful", "optimistic"
+    ],
+    "sadness": [
+        "sad", "unhappy", "depressed", "down", "miserable", "gloomy", "melancholy", "heartbroken",
+        "sorrowful", "despondent", "grieving", "disheartened", "mournful", "dejected", "hopeless"
+    ],
+    "disgust": [
+        "disgusted", "gross", "revolted", "sickened", "repulsed", "nauseated", "appalled",
+        "abhorrent", "distasteful", "detestable", "loathsome", "horrid", "foul", "vile", "repugnant"
+    ],
+    "surprise": [
+        "shocked", "amazed", "astonished", "surprised", "dumbfounded", "speechless", "stunned",
+        "startled", "flabbergasted", "bewildered", "astounded", "aghast", "overwhelmed", "taken aback"
+    ],
+    "trust": [
+        "trust", "confident", "assured", "reliable", "faithful", "dependable", "loyal",
+        "secure", "steady", "hopeful", "unwavering", "devoted", "committed", "believing", "credible"
+    ],
+    "anticipation": [
+        "eager", "expecting", "anticipating", "hopeful", "enthusiastic", "impatient",
+        "excited", "aspiring", "optimistic", "restless", "prepared", "looking forward", "anxious"
+    ]
 }
+
 
 color_rgb_mapping = {
         "yellow": (255, 255, 0),
@@ -251,10 +277,10 @@ def replay_haptic():
 
     for dot in devices:
         dot.registers.set_vibration_intensity(0.0)
-        dot.set_led(255, 255, 255)
+        adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+        dot.set_led(*adjusted_led)
 
     return jsonify({"message": f"Replayed haptic feedback for '{text}' with color {highlight['color']}."})
-
 
 
 if __name__ == "__main__":

@@ -89,7 +89,15 @@ def haptic_feedback():
         dot.registers.set_vibration_frequency(settings["vibration"])
         dot.registers.set_vibration_intensity(1.0)
 
-    highlighted_text_data.append({"text": text, "color": color, "note": None})
+    highlighted_text_data.append({
+    "text": text,
+    "color": color,
+    "note": None,
+    "vibration": settings["vibration"],  # ✅ Store vibration settings
+    "type": "normal"
+    })
+    print(highlighted_text_data)
+
 
     time.sleep(1.5)
 
@@ -105,9 +113,12 @@ def haptic_feedback():
 def analyze_sentiment():
     """
     Analyzes sentiment when adding a note and triggers corresponding haptic feedback.
+    This is taking the text in the notes, not the highlighted text
     """
     data = request.json
     text = data.get("text", "").strip().lower()
+    curr_text = data.get("highlightedText", "").strip().lower()
+    print("This is the curr before", curr_text)
 
     if not text:
         return jsonify({"error": "No text provided"}), 400
@@ -162,8 +173,17 @@ def analyze_sentiment():
         dot.registers.set_vibration_mode(1)
         dot.registers.set_vibration_frequency(settings["vibration"])
         dot.registers.set_vibration_intensity(1.0)
-
-    highlighted_text_data.append({"text": text, "color": settings["color"], "note": text})
+    print("This is the curr after", curr_text)
+    
+    highlighted_text_data.append({
+    "text": curr_text,
+    "color": settings["color"],
+    "note": text,
+    "vibration": settings["vibration"],  # ✅ Store vibration settings
+    "type": "sense",
+    "emotion": detected_emotion
+    })
+    print(highlighted_text_data)
 
     time.sleep(1.5)
 
@@ -187,6 +207,53 @@ def detect_emotion_from_text(words):
         if any(word in keywords for word in words):  # Direct match
             return emotion
     return "neutral"
+
+
+@app.route("/replay-haptic", methods=["POST"])
+def replay_haptic():
+    color_rgb_mapping = {
+        "yellow": (255, 255, 0),
+        "red": (255, 0, 0),
+        "blue": (0, 0, 255),
+        "green": (0, 128, 0)  # Using the standard web-safe green
+    }
+
+    data = request.json
+    text = data.get("text", "").strip().lower()
+
+    print(f"Received request to replay haptic for: '{text}'")  # Debugging
+    print(f"Stored highlights: {highlighted_text_data}")  # Debugging
+
+    # Find matching highlight
+    highlight = next((item for item in highlighted_text_data if item["text"].strip().lower() == text), None)
+
+    if not highlight:
+        return jsonify({"error": "No haptic feedback found for the selected text."}), 400
+
+    devices = discover_devices(4)
+    if not devices:
+        return jsonify({"error": "No haptic devices found."}), 500
+
+    if highlight.get("type") == "normal":
+        color_settings = {"led": color_rgb_mapping.get(highlight["color"], (255, 255, 255))}
+    else:
+        emotion = highlight.get("emotion", "neutral")  # Default to "neutral" if no emotion found
+        color_settings = EMOTION_HAPTIC_MAPPINGS.get(emotion, {"led": (255, 255, 255)})
+
+    for dot in devices:
+        dot.set_led(*color_settings["led"])
+        dot.registers.set_vibration_frequency(highlight["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
+
+    time.sleep(1.5)
+
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        dot.set_led(255, 255, 255)
+
+    return jsonify({"message": f"Replayed haptic feedback for '{text}' with color {highlight['color']}."})
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

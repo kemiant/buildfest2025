@@ -3,6 +3,9 @@
 ## Overview
 This is a Flask-based web application that provides text-to-speech functionality along with haptic feedback for highlighted text. The application integrates NLP for sentiment analysis and utilizes the DataFeel haptic hardware for tactile responses.
 
+![image](https://github.com/user-attachments/assets/d212c791-c654-47df-bc38-6d8a5a801a66)
+
+
 ## Features
 - **Text-to-Speech (TTS)**: Uses `pyttsx3` to read aloud selected text.
 - **Haptic Feedback**: Triggers vibrations and LED colors based on detected emotions.
@@ -49,7 +52,7 @@ http://127.0.0.1:5000
   ```json
   {"text": "example text", "color": "red"}
   ```
-![Online Image]([https://example.com/path-to-image.jpg](https://drive.google.com/file/d/1h70xRC3PG3olqpYTL8nHb_gmcgUuoopA/view?usp=sharing))
+
 
 ### Analyze Sentiment
 **`POST /analyze-sentiment`**

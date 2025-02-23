@@ -487,6 +487,43 @@
         }
 
 
+        document.addEventListener("DOMContentLoaded", function () {
+            let readAloudButton = document.getElementById("read-aloud");
+
+            if (readAloudButton) {
+                readAloudButton.addEventListener("click", function () {
+                    console.log("📢 Read Aloud button clicked!");
+
+                    // Extract all text from both columns
+                    let leftColumnText = document.getElementById("left-column").innerText;
+                    let rightColumnText = document.getElementById("right-column").innerText;
+                    let fullText = leftColumnText + " " + rightColumnText;
+
+                    // Send request to Flask backend to read the text and trigger haptics
+                    fetch("/speak-haptic", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: fullText })  // Send the full text
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("🔊 Server Response:", data);
+                        showAlert(data.message);  // Show alert with message from backend
+
+                        // Change button text dynamically
+                        if (data.message.includes("stopped")) {
+                            readAloudButton.innerText = "🔊 Read Aloud";
+                        } else {
+                            readAloudButton.innerText = "🔴 Stop Reading";
+                        }
+                    })
+                    .catch(error => console.error("❌ Error:", error));
+                });
+            } else {
+                console.log("⚠️ Read Aloud button NOT FOUND!");
+            }
+        });
+
 
 
     </script>
@@ -508,7 +545,8 @@
             </div>
             
             <button onclick="addNote()">💬</button>
-            <button onclick="recordVoice()">🗣️</button>
+            <button id="read-aloud">🔊</button>
+
         </div>
 
         

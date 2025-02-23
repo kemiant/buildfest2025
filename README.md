@@ -49,6 +49,7 @@ http://127.0.0.1:5000
   ```json
   {"text": "example text", "color": "red"}
   ```
+![Online Image]([https://example.com/path-to-image.jpg](https://drive.google.com/file/d/1h70xRC3PG3olqpYTL8nHb_gmcgUuoopA/view?usp=sharing))
 
 ### Analyze Sentiment
 **`POST /analyze-sentiment`**

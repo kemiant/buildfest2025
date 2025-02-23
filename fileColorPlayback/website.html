@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Text Highlighter & Haptic Feedback</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .highlighted { font-weight: bold; padding: 2px; cursor: pointer; }
+        .yellow { background-color: yellow; }
+        .red { background-color: red; color: white; }
+        .blue { background-color: blue; color: white; }
+        .green { background-color: green; color: white; }
+        .note-box { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
+        .hidden { display: none; }
+    </style>
+    <script>
+        function getSelectedText() {
+            let selection = window.getSelection();
+            if (selection.rangeCount === 0) return ""; // No selection
+            return selection.toString().trim();
+        }
+
+        function playHapticFeedback(text) {
+            fetch("/play-haptic-feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text })  // Send the clicked text
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(`Haptic feedback played for: ${text}`);
+            })
+            .catch(error => console.error("Error playing haptic feedback:", error));
+        }
+
+
+
+        function highlightText(color) {
+            let selectedText = getSelectedText();
+            if (!selectedText) {
+                alert("Please select text before highlighting.");
+                return;
+            }
+
+            let range = window.getSelection().getRangeAt(0);
+            let span = document.createElement("span");
+            span.className = `highlighted ${color}`;
+            span.textContent = selectedText;
+            span.onclick = function () { playHapticFeedback(selectedText); }; // Click triggers haptics
+            range.deleteContents();
+            range.insertNode(span);
+
+            // Send color to backend for haptic feedback
+            fetch("/haptic-feedback", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: selectedText, color: color })
+            });
+
+            window.getSelection().removeAllRanges();
+        }
+
+
+        function addNote() {
+            let selectedText = getSelectedText();
+            if (!selectedText) {
+                alert("Please highlight text before adding a note.");
+                return;
+            }
+
+            let note = prompt(`Add a note for: "${selectedText}"`);
+            if (!note) return;
+
+            let range = window.getSelection().getRangeAt(0);
+            let span = document.createElement("span");
+            span.textContent = selectedText;
+            span.className = "highlighted yellow"; // Default color before sentiment analysis
+            span.setAttribute("data-note", note);
+
+            // Make note clickable for haptic feedback
+            span.onclick = function () { playHapticFeedback(note); };
+            span.setAttribute("data-text", note);  // ✅ Store note text for retrieval
+
+
+            range.deleteContents();
+            range.insertNode(span);
+
+            // Send note to backend for sentiment analysis
+            fetch("/analyze-sentiment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: note })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                span.className = `highlighted ${data.color}`;  // Update color based on detected sentiment
+                span.setAttribute("data-color", data.color);  // Store color for later use
+                span.setAttribute("data-text", note);  // Store note text for haptic recall
+            });
+
+            // Hide highlight buttons when switching to "Add Note"
+            document.getElementById("highlight-options").classList.add("hidden");
+            document.getElementById("toggle-highlight").classList.remove("hidden");
+
+            window.getSelection().removeAllRanges();
+        }
+
+
+        function toggleHighlightOptions() {
+            let highlightOptions = document.getElementById("highlight-options");
+            let toggleButton = document.getElementById("toggle-highlight");
+
+            if (highlightOptions.classList.contains("hidden")) {
+                highlightOptions.classList.remove("hidden");
+                toggleButton.classList.add("hidden"); // Hide the "Highlight" button
+            } else {
+                highlightOptions.classList.add("hidden");
+                toggleButton.classList.remove("hidden"); // Show the "Highlight" button
+            }
+        }
+    </script>
+</head>
+<body>
+    <h2>Highlight Text & Add a Note for Haptic Feedback</h2>
+    <p>Select text and click "Highlight" to choose a color or "Add Note" to annotate it.</p>
+
+    <button id="toggle-highlight" onclick="toggleHighlightOptions()">Highlight</button>
+
+    <div id="highlight-options" class="hidden">
+        <button onclick="highlightText('yellow')">Yellow</button>
+        <button onclick="highlightText('red')">Red</button>
+        <button onclick="highlightText('blue')">Blue</button>
+        <button onclick="highlightText('green')">Green</button>
+    </div>
+
+    <button onclick="addNote()">Add Note</button>
+
+    <p>Example paragraph: Try selecting a part of this text and assigning a color or note to it.</p>
+
+    <div id="notes-container"></div>
+</body>
+</html>

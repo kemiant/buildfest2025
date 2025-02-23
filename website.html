@@ -1,374 +1,261 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+from flask import Flask, request, send_file, jsonify
+from datafeel.device import discover_devices
+from nrclex import NRCLex
+import time
+from collections import Counter
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet
+import nltk
+import speech_recognition as sr
 
-    <title>Text Highlighter & Haptic Feedback</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(-45deg, #ffeeaa, #ffcbab, #f89354, #ffe26c);
-            background-size: 400% 400%;
-            animation: gradientBG 10s ease infinite;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            padding: 20px;
-            margin: 0;
-        }
+# Ensure necessary NLTK data is downloaded
+nltk.download('wordnet')
+nltk.download('punkt')
 
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .highlighted { font-weight: bold; padding: 2px; cursor: pointer; }
-        .yellow { background-color: yellow; }
-        .red { background-color: red; color: white; }
-        .blue { background-color: blue; color: white; }
-        .green { background-color: green; color: white; }
-        .note-box { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
-        .hidden { display: none; }
+lemmatizer = WordNetLemmatizer()
 
+app = Flask(__name__)
 
-        .main-container {
-            width: 95%;
-            height: 90%;
-            background: rgba(255, 255, 255, 0.7);
-            border-radius: 20px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-        }
+# Emotion-to-color mapping for highlighting & haptic feedback
+EMOTION_HAPTIC_MAPPINGS = {
+    "anger": {"led": (255, 0, 0), "color": "red", "vibration": 200},
+    "fear": {"led": (128, 0, 128), "color": "blue", "vibration": 250},
+    "joy": {"led": (0, 255, 0), "color": "green", "vibration": 100},
+    "sadness": {"led": (0, 0, 255), "color": "blue", "vibration": 220},
+    "disgust": {"led": (255, 165, 0), "color": "yellow", "vibration": 180},
+    "surprise": {"led": (255, 255, 0), "color": "yellow", "vibration": 150},
+    "trust": {"led": (0, 255, 255), "color": "green", "vibration": 120},
+    "anticipation": {"led": (255, 192, 203), "color": "yellow", "vibration": 130},
+}
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: left;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #EEE;
-        }
+# Emotion keyword mapping (checked first before NRCLex)
+EMOTION_KEYWORDS = {
+    "anger": ["angry", "mad", "furious", "rage", "irritated", "frustrated"],
+    "fear": ["scared", "afraid", "terrified", "nervous", "anxious"],
+    "joy": ["happy", "excited", "delighted", "joyful", "glad"],
+    "sadness": ["sad", "unhappy", "depressed", "down", "miserable"],
+    "disgust": ["disgusted", "gross", "revolted", "sickened"],
+    "surprise": ["shocked", "amazed", "astonished", "surprised"],
+    "trust": ["trust", "confident", "assured", "reliable"],
+    "anticipation": ["eager", "expecting", "anticipating"],
+}
 
-        .title {
-            font-size: 48px;
-            font-weight: normal;
-            color: #0d0a00;
-            position: absolute;
-            top: 60px;
-            left: 130px;
-            text-align: left;
-        }
+color_rgb_mapping = {
+        "yellow": (255, 255, 0),
+        "red": (255, 0, 0),
+        "blue": (0, 0, 255),
+        "green": (0, 128, 0)  # Using the standard web-safe green
+}
 
-        .instructions {
-            position: absolute;
-            top: 150px;
-            left: 150px;
-            text-align: left;
-            font-size: 25px;
-        }
+NEUTRAL_TEMP = 0.0
+LED_NEUTRAL = (255, 255, 255)
 
+highlighted_text_data = []
 
-        .buttons {
-            position: absolute;
-            bottom: 90px;
-            right: 110px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+def adjust_intensity(color, intensity):
+    """ Adjust LED brightness by scaling RGB values based on intensity (0.5 - 1.0) """
+    return tuple(int(c * intensity) for c in color)
 
-        .buttons button {
-            background: #FFA500;
-            color: white;
-            border: none;
-            padding: 10px;
-            border-radius: 50%;
-            width: 70px;
-            height: 70px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.3s;
-            font-size: 20px;
-        }
+def get_synonyms(word):
+    """Find synonyms using WordNet to increase emotion detection accuracy."""
+    synonyms = set()
+    for syn in wordnet.synsets(word):
+        for lemma in syn.lemmas():
+            synonyms.add(lemma.name().lower())
+    return list(synonyms)
 
-        .buttons button:hover {
-            background: #FF8C00;
-        }
+@app.route("/")
+def home():
+    return send_file("website.html")
 
+@app.route("/haptic-feedback", methods=["POST"])
+def haptic_feedback():
+    """
+    Triggers haptic feedback when highlighting text.
+    """
+    data = request.json
+    text = data.get("text", "")
+    color = data.get("color", "")
 
-        #yellow { background-color: rgb(244, 244, 0); border-color: yellow; color: white;}
-        #red { background-color: rgb(255, 110, 110); border-color: red; color: white; }
-        #blue { background-color: rgb(102, 102, 255); border-color: blue; color: white; }
-        #green { background-color: rgb(0, 185, 0); border-color: green; color: white; }
+    if not text or not color:
+        return jsonify({"error": "Invalid input"}), 400
 
+    # Use predefined colors for haptic feedback
+    settings = next((v for k, v in EMOTION_HAPTIC_MAPPINGS.items() if v["color"] == color), None)
 
-        /* Improved Two-column text content */
+    if not settings:
+        return jsonify({"error": "Invalid color"}), 400
+
+    devices = discover_devices(4)
+    if not devices:
+        return jsonify({"error": "No dots found"}), 500
+
+    for dot in devices:
+        dot.set_led(*settings["led"])
+        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_frequency(settings["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
+
+    highlighted_text_data.append({
+    "text": text,
+    "color": color,
+    "note": None,
+    "vibration": settings["vibration"],  # ✅ Store vibration settings
+    "type": "normal"
+    })
+    print(highlighted_text_data)
 
 
-        #left-column {
-            width: 35%;  /* Adjust width to balance columns */
-            text-align: justify;
-            font-size: 26px;
-            position: absolute;
-            line-height: 1.6;
-            color: #333;
-            padding-right: 10px; /* Small padding to prevent overlap */
-            left: 170px;
-            top: 210px;
-        }
+    time.sleep(1.5)
 
-        /* Right Column */
-        #right-column {
-            width: 35%; /* Matches left column */
-            text-align: justify;
-            position: absolute;
-            font-size: 26px;
-            line-height: 1.6;
-            color: #333;
-            right: 270px;
-            top: 210px;
-        }
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+        dot.set_led(*adjusted_led)
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)
 
-                /* Progress Bar Container */
-        .progress-container {
-            width: 70%; /* Adjust width to match text container */
-            height: 8px; /* Height of the progress bar */
-            background: #d3d3d3; /* Light gray background */
-            border-radius: 5px;
-            position: absolute;
-            bottom: 70px; /* Distance from bottom */
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-        }
+    return jsonify({"message": f"Haptic feedback triggered for {color}, then turned off."})
 
-        /* Progress Fill */
-        .progress-bar {
-            height: 8px;
-            width: 40%; /* Adjust progress percentage */
-            background: #aaaaaa; /* Darker gray */
-            border-radius: 5px;
-            position: absolute;
-            top: 0px;
-        }
+@app.route("/analyze-sentiment", methods=["POST"])
+def analyze_sentiment():
+    """
+    Analyzes sentiment when adding a note and triggers corresponding haptic feedback.
+    This is taking the text in the notes, not the highlighted text
+    """
+    data = request.json
+    text = data.get("text", "").strip().lower()
+    curr_text = data.get("highlightedText", "").strip().lower()
+    print("This is the curr before", curr_text)
 
-        /* Progress Circle */
-        .progress-circle {
-            width: 20px;
-            height: 20px;
-            background: #888888; /* Medium gray */
-            border-radius: 50%;
-            position: absolute;
-            left: 40%; /* Match the progress-bar width */
-            top: 50%; /* Moves the circle directly over the bar */
-            transform: translate(-50%, -50%);
-        }
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
 
+    # Tokenize and lemmatize each word
+    words = [lemmatizer.lemmatize(word) for word in word_tokenize(text)]
 
-                /* Top Right Menu Bar */
-        .top-right-menu {
-            position: absolute;
-            top: 100px;
-            right: 100px;
-            background: #FBC02D; /* Light yellow background */
-            padding: 10px 15px;
-            border-radius: 25px; /* Rounded edges */
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
+    # Step 1: Check predefined emotion keywords first
+    detected_emotion = detect_emotion_from_text(words)
 
-        /* Individual Menu Buttons */
-        .menu-button {
-            width: 70px;
-            height: 70px;
+    # Step 2: If no keyword match, use NRCLex to analyze each word separately
+    emotion_counter = Counter()
+    if detected_emotion == "neutral":
+        for word in words:
+            analysis = NRCLex(word)  # Run NRCLex analysis
             
-            background: #E09111; /* Darker orange */
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.3s;
+            # Ensure NRCLex actually finds meaningful values
+            for emotion, score_list in analysis.raw_emotion_scores.items():
+                if isinstance(score_list, list):  
+                    highest_score = max(score_list)  # Take highest score from list
+                else:
+                    highest_score = score_list  # If it's a single number
 
-        }
+                if highest_score > 0:  # Filter out zero-score emotions
+                    emotion_counter[emotion] += highest_score  # Accumulate scores
 
-        /* Hover Effect */
-        .menu-button:hover {
-            background: #d47f09; /* Slightly darker orange */
-        }
+            # If NRCLex fails, try synonyms
+            if sum(emotion_counter.values()) == 0:
+                synonyms = get_synonyms(word)
+                for synonym in synonyms:
+                    analysis = NRCLex(synonym)
+                    for emotion, score_list in analysis.raw_emotion_scores.items():
+                        highest_score = max(score_list) if isinstance(score_list, list) else score_list
+                        if highest_score > 0:
+                            emotion_counter[emotion] += highest_score
 
-        /* Icons Inside Buttons */
-        .menu-button i {
-            color: white;
-            font-weight: normal;
-            font-size: 30px;
-        }
+        # Step 3: Select the dominant emotion
+        if emotion_counter:
+            detected_emotion = max(emotion_counter, key=emotion_counter.get)
 
-
-    </style>
-    <script>
-        function getSelectedText() {
-            let selection = window.getSelection();
-            if (selection.rangeCount === 0) return ""; // No selection
-            return selection.toString().trim();
-        }
-
-        function highlightText(color) {
-            let selectedText = getSelectedText();
-            if (!selectedText) {
-                alert("Please select text before highlighting.");
-                return;
-            }
-
-            let range = window.getSelection().getRangeAt(0);
-            let span = document.createElement("span");
-            span.className = `highlighted ${color}`;
-            span.textContent = selectedText;
-            span.onclick = function() { replayHapticFeedback(selectedText); };
-
-            range.deleteContents();
-            range.insertNode(span);
-
-            // Send color to backend for haptic feedback
-            fetch("/haptic-feedback", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: selectedText, color: color })
-            });
-
-            window.getSelection().removeAllRanges();
-        }
-
-        function addNote() {
-            let selectedText = getSelectedText();
-            if (!selectedText) {
-                alert("Please highlight text before adding a note.");
-                return;
-            }
-
-            let note = prompt(`Add a note for: "${selectedText}"`);
-            if (!note) return;
-
-            let range = window.getSelection().getRangeAt(0);
-            let span = document.createElement("span");
-            span.textContent = selectedText;
-            span.className = "highlighted yellow"; // Default color before sentiment analysis
-            span.setAttribute("data-note", note);
-            span.onclick = function() { alert("Note: " + note); };
-            span.onclick = function() { replayHapticFeedback(selectedText); alert("Note: " + note); };
-
-            range.deleteContents();
-            range.insertNode(span);
-
-            // Send note and highlighted text to backend for sentiment analysis
-            fetch("/analyze-sentiment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: note, highlightedText: selectedText })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                span.className = `highlighted ${data.color}`;
-            });
-
-            // Hide the highlight buttons when switching to "Add Note"
-            document.getElementById("highlight-options").classList.add("hidden");
-            document.getElementById("toggle-highlight").classList.remove("hidden");
-
-            window.getSelection().removeAllRanges();
-        }
-
-        function replayHapticFeedback(text) {
-            fetch("/replay-haptic", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: text })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(`Replaying haptic feedback for: "${text}"`);
-            });
-        }
-
-
-        function toggleHighlightOptions() {
-            let highlightOptions = document.getElementById("highlight-options");
-            let toggleButton = document.getElementById("toggle-highlight");
-
-            if (highlightOptions.classList.contains("hidden")) {
-                highlightOptions.classList.remove("hidden");
-                toggleButton.classList.add("hidden"); // Hide the "Highlight" button
-            } else {
-                highlightOptions.classList.add("hidden");
-                toggleButton.classList.remove("hidden"); // Show the "Highlight" button
-            }
-        }
-
-
-    </script>
-</head>
-<body>
-    <div class="main-container">
-        <h2 class="title">The Hill We Climb</h2>
-        <p class="instructions">Amanda Gorman</p>
+    print(f"Detected emotions from NRCLex: {emotion_counter}")
     
+    # Assign color and haptic feedback based on detected emotion
+    settings = EMOTION_HAPTIC_MAPPINGS.get(detected_emotion, {"led": (255, 255, 255), "color": "yellow", "vibration": 150})
 
-        <div class="buttons">
-            <button id="toggle-highlight" onclick="toggleHighlightOptions()">✍️</button>
+    devices = discover_devices(4)
+    if not devices:
+        return jsonify({"error": "No dots found"}), 500
 
-            <div id="highlight-options" class="hidden">
-                <button onclick="highlightText('yellow')" id="yellow">Yellow</button>
-                <button onclick="highlightText('red')" id="red">Red</button>
-                <button onclick="highlightText('blue')" id="blue">Indigo</button>
-                <button onclick="highlightText('green')"  id="green">Green</button>
-            </div>
-            
-            <button onclick="addNote()">💬</button>
-            <button onclick="recordVoice()">🗣️</button>
-        </div>
+    for dot in devices:
+        dot.set_led(*settings["led"])
+        dot.registers.set_vibration_mode(1)
+        dot.registers.set_vibration_frequency(settings["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
+    print("This is the curr after", curr_text)
+    
+    highlighted_text_data.append({
+    "text": curr_text,
+    "color": settings["color"],
+    "note": text,
+    "vibration": settings["vibration"],  # ✅ Store vibration settings
+    "type": "sense",
+    "emotion": detected_emotion
+    })
+    print(highlighted_text_data)
 
-        
+    time.sleep(1.5)
 
-        <div class="text-content">
-            <div class="column" id="left-column">
-                <p>When day comes we ask ourselves, where can we find light in this neverending shade? The loss we carry, 
-                a sea we must wade. We’ve braved the belly of the beast, we’ve learned that quiet isn’t always peace and the norms 
-                and notions of what just is, isn’t always justice. And yet the dawn is ours before we knew it, somehow we do it, somehow we’ve 
-                weathered and witnessed a nation that isn’t broken but simply unfinished. 
-                </p>
-            </div>
-            <div class="column" id="right-column">
-                <p>We, the successors of a country and a time where a skinny black girl descended from slaves and raised by a single mother 
-                can dream of becoming president only to find herself reciting for one. And, yes, we are far from polished, far from pristine, 
-                but that doesn’t mean we are striving to form a union that is perfect, we are striving to forge a union with purpose, to compose a 
-                country committed to all cultures, colors, characters and conditions of man.</p>
-            </div>
-        </div>
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        adjusted_led = adjust_intensity(LED_NEUTRAL, .3)
+        dot.set_led(*adjusted_led)
+        dot.registers.set_thermal_intensity(NEUTRAL_TEMP)
 
-        <div class="progress-container">
-            <div class="progress-bar"></div>
-            <div class="progress-circle"></div>
-        </div>
-        
-        <div class="top-right-menu">
-            <div class="menu-button"><i class="fas fa-users">👤</i></div>
-            <div class="menu-button"><i class="fas fa-bookmark">🔖</i></div>
-            <div class="menu-button"><i class="fas fa-search">🔍</i></div>
-            <div class="menu-button"><i class="fas fa-font">🖹</i></div>
-        </div>
+    return jsonify({
+        "message": f"Emotion detected: {detected_emotion}, color assigned: {settings['color']}, haptic feedback triggered.",
+        "color": settings["color"],
+        "emotion": detected_emotion
+    })
 
-        
+def detect_emotion_from_text(words):
+    """
+    Manually detects emotion by checking if any words in the list match known emotion keywords.
+    """
+    for emotion, keywords in EMOTION_KEYWORDS.items():
+        if any(word in keywords for word in words):  # Direct match
+            return emotion
+    return "neutral"
 
-        <div id="notes-container"></div>
-    </div>
-</body>
-</html>
+
+@app.route("/replay-haptic", methods=["POST"])
+def replay_haptic():
+
+
+    data = request.json
+    text = data.get("text", "").strip().lower()
+
+    print(f"Received request to replay haptic for: '{text}'")  # Debugging
+    print(f"Stored highlights: {highlighted_text_data}")  # Debugging
+
+    # Find matching highlight
+    highlight = next((item for item in highlighted_text_data if item["text"].strip().lower() == text), None)
+
+    if not highlight:
+        return jsonify({"error": "No haptic feedback found for the selected text."}), 400
+
+    devices = discover_devices(4)
+    if not devices:
+        return jsonify({"error": "No haptic devices found."}), 500
+
+    if highlight.get("type") == "normal":
+        color_settings = {"led": color_rgb_mapping.get(highlight["color"], (255, 255, 255))}
+    else:
+        emotion = highlight.get("emotion", "neutral")  # Default to "neutral" if no emotion found
+        color_settings = EMOTION_HAPTIC_MAPPINGS.get(emotion, {"led": (255, 255, 255)})
+
+    for dot in devices:
+        dot.set_led(*color_settings["led"])
+        dot.registers.set_vibration_frequency(highlight["vibration"])
+        dot.registers.set_vibration_intensity(1.0)
+
+    time.sleep(1.5)
+
+    for dot in devices:
+        dot.registers.set_vibration_intensity(0.0)
+        dot.set_led(255, 255, 255)
+
+    return jsonify({"message": f"Replayed haptic feedback for '{text}' with color {highlight['color']}."})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

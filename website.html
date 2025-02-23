@@ -212,6 +212,125 @@
             font-size: 30px;
         }
 
+        /* Custom Alert (Toast Notification) */
+        .custom-alert {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FFB84D; /* Warm orange background */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 250px;
+            text-align: center;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        /* Show Alert */
+        .custom-alert.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        /* Hide Alert */
+        .custom-alert.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+                /* Custom Modal Background */
+        .custom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        /* Hidden Class */
+        .hidden {
+            display: none;
+        }
+
+        /* Modal Content */
+        .modal-content {
+            background: #fff;
+            width: 400px;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Modal Header */
+        .modal-content h3 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        /* Modal Input */
+        #modal-input {
+            width: 90%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: 'Poppins', sans-serif;
+            outline: none;
+            resize: none;
+        }
+
+        /* Modal Buttons */
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .modal-buttons button {
+            width: 45%;
+            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .modal-buttons button:first-child {
+            background: #FFA500;
+            color: #333;
+        }
+
+        .modal-buttons button:first-child:hover {
+            background: #ffd17d;
+        }
+
+        .modal-buttons button:last-child {
+            background: #a4a4a4;
+            color: white;
+        }
+
+        .modal-buttons button:last-child:hover {
+            background: #e8e8e8;
+        }
+
 
     </style>
     <script>
@@ -224,7 +343,7 @@
         function highlightText(color) {
             let selectedText = getSelectedText();
             if (!selectedText) {
-                alert("Please select text before highlighting.");
+                showAlert("Please select text before highlighting.");
                 return;
             }
 
@@ -247,45 +366,56 @@
             window.getSelection().removeAllRanges();
         }
 
+        let selectedRange = null; // Stores selected text range
+
         function addNote() {
-            let selectedText = getSelectedText();
-            if (!selectedText) {
-                alert("Please highlight text before adding a note.");
+            let selection = window.getSelection();
+            if (selection.rangeCount === 0) {
+                showAlert("Please highlight text before adding a note.");
                 return;
             }
 
-            let note = prompt(`Add a note for: "${selectedText}"`);
-            if (!note) return;
+            selectedRange = selection.getRangeAt(0); // ✅ Store the selected text range
+            let selectedText = selection.toString().trim();
+            if (!selectedText) return;
 
-            let range = window.getSelection().getRangeAt(0);
-            let span = document.createElement("span");
-            span.textContent = selectedText;
-            span.className = "highlighted yellow"; // Default color before sentiment analysis
-            span.setAttribute("data-note", note);
-            span.onclick = function() { alert("Note: " + note); };
-            span.onclick = function() { replayHapticFeedback(selectedText); alert("Note: " + note); };
+            openModal(selectedText, function(note) {
+                if (!note) return;
 
-            range.deleteContents();
-            range.insertNode(span);
+                // ✅ Send note & highlighted text to the back-end
+                fetch("/analyze-sentiment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: note, highlightedText: selectedText }) // ✅ Send both note & text
+                })
+                .then(response => response.json())
+                .then(data => {
+                    let detectedColor = data.color || "yellow"; // ✅ Get the detected color
+                    let detectedEmotion = data.emotion || "neutral";
 
-            // Send note and highlighted text to backend for sentiment analysis
-            fetch("/analyze-sentiment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: note, highlightedText: selectedText })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                span.className = `highlighted ${data.color}`;
+                    let span = document.createElement("span");
+                    span.textContent = selectedText;
+                    span.className = `highlighted ${detectedColor}`; // ✅ Apply highlight color
+                    span.setAttribute("data-note", note);
+
+                    // ✅ When clicking the annotation, play the haptic feedback
+                    span.onclick = function() { 
+                        replayHapticFeedback(selectedText);
+                        showAlert(`Note: ${note} (Emotion: ${detectedEmotion})`);
+                    };
+
+                    selectedRange.deleteContents(); // ✅ Remove original text
+                    selectedRange.insertNode(span); // ✅ Insert highlighted span
+
+                    showAlert(`Emotion detected: ${detectedEmotion}, color: ${detectedColor}`);
+                });
+                
+                window.getSelection().removeAllRanges(); // ✅ Deselect to keep highlight
             });
-
-            // Hide the highlight buttons when switching to "Add Note"
-            document.getElementById("highlight-options").classList.add("hidden");
-            document.getElementById("toggle-highlight").classList.remove("hidden");
-
-            window.getSelection().removeAllRanges();
         }
+
+
+
 
         function replayHapticFeedback(text) {
             fetch("/replay-haptic", {
@@ -295,7 +425,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                alert(`Replaying haptic feedback for: "${text}"`);
+                showAlert(`Replaying haptic feedback for: "${text}"`);
             });
         }
 
@@ -312,6 +442,46 @@
                 toggleButton.classList.remove("hidden"); // Show the "Highlight" button
             }
         }
+
+        function showAlert(message) {
+            let alertBox = document.getElementById("custom-alert");
+            let alertMessage = document.getElementById("alert-message");
+
+            alertMessage.innerText = message;
+            alertBox.classList.remove("hidden");
+            alertBox.classList.add("show");
+
+            // Hide the alert after 3 seconds
+            setTimeout(() => {
+                alertBox.classList.remove("show");
+                alertBox.classList.add("hidden");
+            }, 3000);
+        }
+
+        function openModal(text, callback) {
+            let modal = document.getElementById("custom-modal");
+            let modalText = document.getElementById("modal-text");
+            let modalInput = document.getElementById("modal-input");
+
+            modalText.innerText = `Add a note for: "${text}"`;
+            modalInput.value = "";
+            modal.classList.remove("hidden");
+
+            window.modalCallback = callback;
+        }
+
+        function closeModal(save) {
+            let modal = document.getElementById("custom-modal");
+            let modalInput = document.getElementById("modal-input");
+
+            if (save && window.modalCallback) {
+                window.modalCallback(modalInput.value); // ✅ Pass the note to highlight function
+            }
+
+            modal.classList.add("hidden");
+        }
+
+
 
 
     </script>
@@ -370,5 +540,28 @@
 
         <div id="notes-container"></div>
     </div>
+
+    <!-- Custom Toast Notification -->
+<div id="custom-alert" class="custom-alert hidden">
+    <p id="alert-message"></p>
+</div>
+
+<!-- Custom Modal for Notes -->
+<div id="custom-modal" class="custom-modal hidden">
+    <div class="modal-content">
+        <h3>Add a Note</h3>
+        <p id="modal-text"></p>
+        <textarea id="modal-input" placeholder="Type your note here..."></textarea>
+        <div class="modal-buttons">
+            <button onclick="closeModal(true)">Save</button>
+            <button onclick="closeModal(false)">Cancel</button>
+
+        </div>
+    </div>
+</div>
+
+
+
+
 </body>
 </html>

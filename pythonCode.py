@@ -120,7 +120,7 @@ def haptic_feedback():
 
     for dot in devices:
         dot.set_led(*settings["led"])
-        dot.registers.set_vibration_mode(settings["mode"])
+        dot.registers.set_vibration_mode(1)
         dot.registers.set_vibration_frequency(settings["vibration"])
         dot.registers.set_vibration_intensity(settings["intensity"])
         dot.registers.set_thermal_intensity(settings["temperature"])
@@ -201,21 +201,38 @@ def analyze_sentiment():
     print(f"Detected emotions from NRCLex: {emotion_counter}")
     
     # Assign color and haptic feedback based on detected emotion
-    settings = EMOTION_HAPTIC_MAPPINGS.get(detected_emotion, {"led": (255, 255, 255), "color": "yellow", "vibration": 150})
+    settings = EMOTION_HAPTIC_MAPPINGS.get(detected_emotion, {"led": (255, 255, 255), "color": "yellow", "vibration": 150, "mode": 1, "temperature": 28.0})
 
     devices = discover_devices(4)
     if not devices:
         return jsonify({"error": "No dots found"}), 500
 
     for dot in devices:
-        print(f"Sending to device: LED={settings['led']}, Mode={settings['mode']}, Vibration={settings['vibration']}, Intensity={settings['intensity']}, Temp={settings['temperature']}")
         dot.set_led(*settings["led"])
-        dot.registers.set_vibration_mode(int(settings["mode"]))
+        dot.registers.set_vibration_mode(1)
         dot.registers.set_vibration_frequency(settings["vibration"])
-        dot.registers.set_vibration_intensity(settings["intensity"])
+        dot.registers.set_vibration_intensity(1)
         dot.registers.set_thermal_intensity(settings["temperature"])
     print("This is the curr after", curr_text)
     
+    
+    time.sleep(1.5)
+    
+    dot.registers.set_vibration_intensity(0.0)  # Stop vibration
+    
+    for dot in devices:
+        if detected_emotion == "neutral":
+            dot.set_led(255, 255, 255)  # White, but turn it off quickly
+            dot.registers.set_vibration_intensity(0.0)  # Stop vibration
+            dot.registers.set_thermal_intensity(NEUTRAL_TEMP)
+        else:
+            dot.set_led(*settings["led"])
+            dot.registers.set_vibration_mode(1)
+            dot.registers.set_vibration_frequency(settings["vibration"])
+            dot.registers.set_vibration_intensity(settings["intensity"])
+            dot.registers.set_thermal_intensity(settings["temperature"])
+
+        
     highlighted_text_data.append({
     "text": curr_text,
     "color": settings["color"],
@@ -337,7 +354,7 @@ def tts_worker():
             if highlight and devices:
                 color = highlight["color"]
                 vibration = highlight["vibration"]
-                settings = EMOTION_HAPTIC_MAPPINGS.get(highlight.get("emotion", "neutral"), {"led": (255, 255, 255), "vibration": 100})
+                settings = EMOTION_HAPTIC_MAPPINGS.get(highlight.get("emotion", "neutral"), {"led": (255, 255, 255),  "vibration": 150, "mode": 1, "temperature": 28.0})
 
                 for dot in devices:
                     dot.set_led(*settings["led"])

@@ -30,7 +30,7 @@ EMOTION_HAPTIC_MAPPINGS = {
 
 # Emotion keyword mapping (checked first before NRCLex)
 EMOTION_KEYWORDS = {
-    "anger": ["angry", "mad", "furious", "rage", "irritated"],
+    "anger": ["angry", "mad", "furious", "rage", "irritated", "frustrated"],
     "fear": ["scared", "afraid", "terrified", "nervous", "anxious"],
     "joy": ["happy", "excited", "delighted", "joyful", "glad"],
     "sadness": ["sad", "unhappy", "depressed", "down", "miserable"],
@@ -38,6 +38,13 @@ EMOTION_KEYWORDS = {
     "surprise": ["shocked", "amazed", "astonished", "surprised"],
     "trust": ["trust", "confident", "assured", "reliable"],
     "anticipation": ["eager", "expecting", "anticipating"],
+}
+
+color_rgb_mapping = {
+        "yellow": (255, 255, 0),
+        "red": (255, 0, 0),
+        "blue": (0, 0, 255),
+        "green": (0, 128, 0)  # Using the standard web-safe green
 }
 
 NEUTRAL_TEMP = 0.0
@@ -211,12 +218,7 @@ def detect_emotion_from_text(words):
 
 @app.route("/replay-haptic", methods=["POST"])
 def replay_haptic():
-    color_rgb_mapping = {
-        "yellow": (255, 255, 0),
-        "red": (255, 0, 0),
-        "blue": (0, 0, 255),
-        "green": (0, 128, 0)  # Using the standard web-safe green
-    }
+
 
     data = request.json
     text = data.get("text", "").strip().lower()

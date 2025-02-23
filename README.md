@@ -9,6 +9,7 @@ This is a Flask-based web application that provides text-to-speech functionality
 - **Sentiment Analysis**: Identifies emotions using NRCLex and predefined keyword lists.
 - **Flask API Endpoints**: Provides RESTful API to handle requests from a frontend interface.
 - **Multithreading Support**: Uses background threads for speech processing.
+- **Interactive UI**: Built using HTML, CSS, and JavaScript.
 
 ## Technologies Used
 - **Flask**: Web framework for handling API requests.
@@ -16,6 +17,7 @@ This is a Flask-based web application that provides text-to-speech functionality
 - **pyttsx3**: Offline text-to-speech conversion.
 - **DataFeel SDK**: Haptic feedback via connected devices.
 - **Threading & Queue**: Manages asynchronous speech synthesis.
+- **JavaScript & CSS**: Frontend interaction and UI styling.
 
 ## Installation
 ### Prerequisites
@@ -75,6 +77,27 @@ project/
 │── website.html     # Frontend UI
 │── README.md        # Documentation
 ```
+
+## Frontend (HTML & CSS)
+The `website.html` file provides a user interface with interactive elements such as:
+- **Text Highlighter**: Allows users to highlight text and trigger haptic feedback.
+- **Read Aloud Button**: Sends selected text to the backend for text-to-speech processing.
+- **Progress Indicator**: Displays reading progress.
+- **Styled Layout**: Uses CSS for a visually appealing design with animated background and buttons.
+
+### Key Features
+- **Highlighting Text**: 
+  - Users can select text and highlight it in different colors.
+  - Highlighted text is sent to the backend for emotion analysis and haptic response.
+
+- **Interactive Buttons**:
+  - **✍️ Highlight Button**: Toggles highlight color options.
+  - **💬 Add Note**: Allows users to annotate highlighted text.
+  - **🔊 Read Aloud**: Initiates text-to-speech and haptic response.
+
+- **JavaScript Enhancements**:
+  - Handles AJAX requests for speech synthesis.
+  - Provides smooth animations for alerts and modal popups.
 
 ## Future Improvements
 - **Speech-to-Text Integration**: Enable real-time voice input.

@@ -1,9 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
     <title>Text Highlighter & Haptic Feedback</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(-45deg, #ffeeaa, #ffcbab, #f89354, #ffe26c);
+            background-size: 400% 400%;
+            animation: gradientBG 10s ease infinite;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            margin: 0;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
         .highlighted { font-weight: bold; padding: 2px; cursor: pointer; }
         .yellow { background-color: yellow; }
         .red { background-color: red; color: white; }
@@ -11,6 +31,188 @@
         .green { background-color: green; color: white; }
         .note-box { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
         .hidden { display: none; }
+
+
+        .main-container {
+            width: 95%;
+            height: 90%;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 20px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: left;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #EEE;
+        }
+
+        .title {
+            font-size: 48px;
+            font-weight: normal;
+            color: #0d0a00;
+            position: absolute;
+            top: 60px;
+            left: 130px;
+            text-align: left;
+        }
+
+        .instructions {
+            position: absolute;
+            top: 150px;
+            left: 150px;
+            text-align: left;
+            font-size: 25px;
+        }
+
+
+        .buttons {
+            position: absolute;
+            bottom: 90px;
+            right: 110px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .buttons button {
+            background: #FFA500;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 20px;
+        }
+
+        .buttons button:hover {
+            background: #FF8C00;
+        }
+
+
+        #yellow { background-color: rgb(244, 244, 0); border-color: yellow; color: white;}
+        #red { background-color: rgb(255, 110, 110); border-color: red; color: white; }
+        #blue { background-color: rgb(102, 102, 255); border-color: blue; color: white; }
+        #green { background-color: rgb(0, 185, 0); border-color: green; color: white; }
+
+
+        /* Improved Two-column text content */
+
+
+        #left-column {
+            width: 35%;  /* Adjust width to balance columns */
+            text-align: justify;
+            font-size: 26px;
+            position: absolute;
+            line-height: 1.6;
+            color: #333;
+            padding-right: 10px; /* Small padding to prevent overlap */
+            left: 170px;
+            top: 210px;
+        }
+
+        /* Right Column */
+        #right-column {
+            width: 35%; /* Matches left column */
+            text-align: justify;
+            position: absolute;
+            font-size: 26px;
+            line-height: 1.6;
+            color: #333;
+            right: 270px;
+            top: 210px;
+        }
+
+                /* Progress Bar Container */
+        .progress-container {
+            width: 70%; /* Adjust width to match text container */
+            height: 8px; /* Height of the progress bar */
+            background: #d3d3d3; /* Light gray background */
+            border-radius: 5px;
+            position: absolute;
+            bottom: 70px; /* Distance from bottom */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+
+        /* Progress Fill */
+        .progress-bar {
+            height: 8px;
+            width: 40%; /* Adjust progress percentage */
+            background: #aaaaaa; /* Darker gray */
+            border-radius: 5px;
+            position: absolute;
+            top: 0px;
+        }
+
+        /* Progress Circle */
+        .progress-circle {
+            width: 20px;
+            height: 20px;
+            background: #888888; /* Medium gray */
+            border-radius: 50%;
+            position: absolute;
+            left: 40%; /* Match the progress-bar width */
+            top: 50%; /* Moves the circle directly over the bar */
+            transform: translate(-50%, -50%);
+        }
+
+
+                /* Top Right Menu Bar */
+        .top-right-menu {
+            position: absolute;
+            top: 100px;
+            right: 100px;
+            background: #FBC02D; /* Light yellow background */
+            padding: 10px 15px;
+            border-radius: 25px; /* Rounded edges */
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        /* Individual Menu Buttons */
+        .menu-button {
+            width: 70px;
+            height: 70px;
+            
+            background: #E09111; /* Darker orange */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.3s;
+
+        }
+
+        /* Hover Effect */
+        .menu-button:hover {
+            background: #d47f09; /* Slightly darker orange */
+        }
+
+        /* Icons Inside Buttons */
+        .menu-button i {
+            color: white;
+            font-weight: normal;
+            font-size: 30px;
+        }
+
+
     </style>
     <script>
         function getSelectedText() {
@@ -110,25 +312,63 @@
                 toggleButton.classList.remove("hidden"); // Show the "Highlight" button
             }
         }
+
+
     </script>
 </head>
 <body>
-    <h2>Highlight Text & Add a Note for Haptic Feedback</h2>
-    <p>Select text and click "Highlight" to choose a color or "Add Note" to annotate it.</p>
+    <div class="main-container">
+        <h2 class="title">The Hill We Climb</h2>
+        <p class="instructions">Amanda Gorman</p>
+    
 
-    <button id="toggle-highlight" onclick="toggleHighlightOptions()">Highlight</button>
+        <div class="buttons">
+            <button id="toggle-highlight" onclick="toggleHighlightOptions()">✍️</button>
 
-    <div id="highlight-options" class="hidden">
-        <button onclick="highlightText('yellow')">Yellow</button>
-        <button onclick="highlightText('red')">Red</button>
-        <button onclick="highlightText('blue')">Blue</button>
-        <button onclick="highlightText('green')">Green</button>
+            <div id="highlight-options" class="hidden">
+                <button onclick="highlightText('yellow')" id="yellow">Yellow</button>
+                <button onclick="highlightText('red')" id="red">Red</button>
+                <button onclick="highlightText('blue')" id="blue">Indigo</button>
+                <button onclick="highlightText('green')"  id="green">Green</button>
+            </div>
+            
+            <button onclick="addNote()">💬</button>
+            <button onclick="recordVoice()">🗣️</button>
+        </div>
+
+        
+
+        <div class="text-content">
+            <div class="column" id="left-column">
+                <p>When day comes we ask ourselves, where can we find light in this neverending shade? The loss we carry, 
+                a sea we must wade. We’ve braved the belly of the beast, we’ve learned that quiet isn’t always peace and the norms 
+                and notions of what just is, isn’t always justice. And yet the dawn is ours before we knew it, somehow we do it, somehow we’ve 
+                weathered and witnessed a nation that isn’t broken but simply unfinished. 
+                </p>
+            </div>
+            <div class="column" id="right-column">
+                <p>We, the successors of a country and a time where a skinny black girl descended from slaves and raised by a single mother 
+                can dream of becoming president only to find herself reciting for one. And, yes, we are far from polished, far from pristine, 
+                but that doesn’t mean we are striving to form a union that is perfect, we are striving to forge a union with purpose, to compose a 
+                country committed to all cultures, colors, characters and conditions of man.</p>
+            </div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+            <div class="progress-circle"></div>
+        </div>
+        
+        <div class="top-right-menu">
+            <div class="menu-button"><i class="fas fa-users">👤</i></div>
+            <div class="menu-button"><i class="fas fa-bookmark">🔖</i></div>
+            <div class="menu-button"><i class="fas fa-search">🔍</i></div>
+            <div class="menu-button"><i class="fas fa-font">🖹</i></div>
+        </div>
+
+        
+
+        <div id="notes-container"></div>
     </div>
-
-    <button onclick="addNote()">Add Note</button>
-
-    <p>Example paragraph: Try selecting a part of this text and assigning a color or note to it.</p>
-
-    <div id="notes-container"></div>
 </body>
 </html>
